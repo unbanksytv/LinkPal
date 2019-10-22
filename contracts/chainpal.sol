@@ -59,105 +59,99 @@ library SafeMath {
     }
 }
 
+//Proxy Contract to test functions without Link Interferance
 contract ChainPal is ChainlinkClient, Ownable{
-    
-    /*ChainLink Functions*/
+
+    //Set the payment as one Oracle time the amount of link the contract has I Believe?
     uint256 constant private ORACLE_PAYMENT = 1 * LINK;
-    uint256 public currentPrice;
-    int256 public changeDay;
-    bytes32 public lastMarket;
-    
-    event RequestEthereumPriceFulfilled(
-        bytes32 indexed requestId,
-        uint256 indexed price
-    );
-    
-    event RequestEthereumChangeFulfilled(
-        bytes32 indexed requestId,
-        int256 indexed change
-    );
-    
-    event RequestEthereumLastMarket(
-        bytes32 indexed requestId,
-        bytes32 indexed market
-    );
-    
+    bool public released;
+    uint8 public trueCount;
+    uint8 public falseCount;
+    //These must all be set on creation
+    string public invoiceID;
     address public sellerAddress;
     address public buyerAddress;
     uint256 public amount;
-    string public url;
-    
-    constructor(address _sellerAddress, address _buyerAddress, uint256 _amount, string _url) public payable Ownable() {
-        
+
+    //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
+    string[] jobIds
+    address[] oracles
+
+    constructor(
+        string _invoiceID,
+        address public _sellerAddress,
+        address public _buyerAddress,
+        uint256 public _amount,
+        string[] _jobIds,
+        address[] _oracles
+    ){
+        trueCount = 0;
+        falseCount = 0;
+        released = false;
+        invoiceID = _invoiceID;
         sellerAddress = _sellerAddress;
-        buyerAddress  = _buyerAddress;
-        amount        = _amount;
-        url           = _url;
-        
-        setPublicChainlinkToken();
+        buyerAddress = _buyerAddress;
+        amount = _amount;
+        jobIds = _jobIds;
+        oracles = _oracles;
     }
     
-    function requestEthereumPrice(address _oracle, string _jobId)
-    public
-    onlyOwner
-    {
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
-        req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
-        req.add("path", "USD");
-        req.addInt("times", 100);
-        sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
+    //modifier to only allow buyers to access functions
+    modifier onlyBuyer(){
+        require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
+        _;
     }
-    
-    function requestEthereumChange(address _oracle, string _jobId)
-    public
-    onlyOwner
-    {
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
-        req.add("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
-        req.add("path", "RAW.ETH.USD.CHANGEPCTDAY");
-        req.addInt("times", 1000000000);
-        sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
+
+    //Might Encounter ORACLE_PAYMENT problems with more than one oracle 
+    //Needs more testing
+    function requestConfirmations()
+    public 
+    onlyBuyer{
+        //Loop to iterate through all the responses from different nodes
+        for(uint i = 0; i < oracles.length; i++){
+            //Putting this in a for loop 
+            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
+            req.add("get", invoiceID);
+            //Are these needed?
+            //req.add("path", "USD");
+            //req.addInt("times", 100);
+            sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
+        }
     }
-    
-    function requestEthereumLastMarket(address _oracle, string _jobId)
-    public
-    onlyOwner
-    {
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
-        req.add("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
-        string[] memory path = new string[](4);
-        path[0] = "RAW";
-        path[1] = "ETH";
-        path[2] = "USD";
-        path[3] = "LASTMARKET";
-        req.addStringArray("path", path);
-        sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
-    }
-    
-    function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
+
+    //This should fulfill the node request
+    function fulfillNodeRequest(bytes32 _requestId, uint256 _output)
     public
     recordChainlinkFulfillment(_requestId)
     {
-        emit RequestEthereumPriceFulfilled(_requestId, _price);
-        currentPrice = _price;
+        emit NodeRequestFulfilled(_requestId, _output);
+        //Append to these to calculate if the funds should be released
+        if(_output = "true"){
+            //Invoice Paid
+            trueCount += 1
+        }else if (_output = "false"){
+            //Invoice Not Paid Yet
+            falseCount +=1
+        }else{
+            //Just Ignore it, Oracle is most probably down
+        }
     }
     
-    function fulfillEthereumChange(bytes32 _requestId, int256 _change)
-    public
-    recordChainlinkFulfillment(_requestId)
-    {
-        emit RequestEthereumChangeFulfilled(_requestId, _change);
-        changeDay = _change;
+    function releaseFunds() public onlyOwner{
+        if(true > false){
+            released = true;
+        }else{
+            //Reset them to 0 to be able to safely re run the oracles
+            trueCount = 0;
+            falseCount = 0;
+        }
     }
-    
-    function fulfillEthereumLastMarket(bytes32 _requestId, bytes32 _market)
-    public
-    recordChainlinkFulfillment(_requestId)
-    {
-        emit RequestEthereumLastMarket(_requestId, _market);
-        lastMarket = _market;
+
+    //Return the released funds to be checked by Factory Contract
+    function getReleased() public view returns(bool){
+        return released;
     }
-    
+
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
@@ -167,21 +161,16 @@ contract ChainPal is ChainlinkClient, Ownable{
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
     }
     
+    //Idk what this is going to be used for.
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
     bytes memory tempEmptyStringTest = bytes(source);
     if (tempEmptyStringTest.length == 0) {
       return 0x0;
     }
-    
+    //Or this
     assembly { // solhint-disable-line no-inline-assembly
       result := mload(add(source, 32))
-    }
-    
-    }
-}
-
-//Proxy Contract to test functions without Link Interferance
-contract proxyContract{
+    }    
 
 }
 
@@ -211,9 +200,24 @@ contract ChainPalFactory {
     //Need to figure out parameters 
     //Link, Address To, ETH amount, Lock that amount of ETH
     //Specify the chainlink node and job too
-    function createLinkPal(address _buyerAddress, uint256 _amount, string _url) public payable{
+    function createLinkPal(
+        string _invoiceID,
+        address public _buyerAddress,
+        uint256 public _amount,
+        string[] _jobIds,
+        address[] _oracles
+    ) public payable{
+
         require(_balances[msg.sender] > 0);
-        LinkPal LinkPalAddress = new LinkPal(msg.sender, _buyerAddress, _amount, _url);
+        LinkPal LinkPalAddress = new ChainPal(
+            string _invoiceID,
+            msg.sender,
+            address public _buyerAddress,
+            uint256 public _amount,
+            string[] _jobIds,
+            address[] _oracles
+        );
+        
         //Sub from balance
         _balances[msg.sender] = SafeMath.sub(_balances[msg.sender],_amount);
         //Add to locked balance inaccessible to users
@@ -230,15 +234,15 @@ contract ChainPalFactory {
         
     }
     
+
     //This function is used to retrieve and verify that the paypal transaction went through,
     //Then Send the money back to the user.
-    function unlockETH() internal{
- 
+    function unlockETH(address _ChainPalAddress) internal{
+        require(ChainPal(_ChainPalAddress).getReleased() == true);
+        //Add the locked amount to the senders balance
+        _balances[msg.sender] = SafeMath.add(_balances[msg.sender],_lockedBalances[msg.sender]);
+        //Set the locked balance to 0 for the message sender
+        _lockedBalances[msg.sender] = 0;
     }
-    
-    //Functions Needed
-    //Lock ETH
-    //Unlock ETH
-    //Transfer ETH
     
 }
