@@ -10,7 +10,6 @@ library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         uint256 c = a + b;
         require(c >= a, "SafeMath: addition overflow");
-
         return c;
     }
 
@@ -21,7 +20,6 @@ library SafeMath {
     function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
         require(b <= a, errorMessage);
         uint256 c = a - b;
-
         return c;
     }
 
@@ -32,10 +30,8 @@ library SafeMath {
         if (a == 0) {
             return 0;
         }
-
         uint256 c = a * b;
         require(c / a == b, "SafeMath: multiplication overflow");
-
         return c;
     }
 
@@ -47,8 +43,6 @@ library SafeMath {
         // Solidity only automatically asserts when dividing by 0
         require(b > 0, errorMessage);
         uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
         return c;
     }
     function mod(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -85,7 +79,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         uint256  _amount,
         string[] _jobIds,
         address[] _oracles
-    ){
+    )public Ownable{
         trueCount = 0;
         falseCount = 0;
         released = false;
@@ -95,6 +89,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         amount = _amount;
         jobIds = _jobIds;
         oracles = _oracles;
+        setPublicChainlinkToken();
     }
     
     //modifier to only allow buyers to access functions
@@ -109,28 +104,30 @@ contract ChainPal is ChainlinkClient, Ownable{
     public 
     onlyBuyer{
         //Loop to iterate through all the responses from different nodes
-        for(uint i = 0; i < oracles.length; i++){
-            //Putting this in a for loop 
-            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
-            req.add("get", invoiceID);
-            //Are these needed?
-            //req.add("path", "USD");
-            //req.addInt("times", 100);
-            sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
-        }
+        //for(uint i = 0; i < oracles.length; i++){
+        //Putting this in a for loop 
+        uint i = 0;
+        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
+        req.add("invoice_id", invoiceID);
+        //req.add(invoice_id, invoiceID);
+        //Are these needed?
+        //req.add("path", "USD");
+        //req.addInt("times", 100);
+        sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
+        //}
     }
 
     //This should fulfill the node request
-    function fulfillNodeRequest(bytes32 _requestId, string memory _output)
+    function fulfillNodeRequest(bytes32 _requestId, string memory paid)
     public
     recordChainlinkFulfillment(_requestId)
     {
         //emit NodeRequestFulfilled(_requestId, _output);
         //Append to these to calculate if the funds should be released
-        if(keccak256(abi.encodePacked((_output))) == keccak256(abi.encodePacked(("true")))){
+        if(keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("true")))){
             //Invoice Paid
             trueCount += 1;
-        }else if (keccak256(abi.encodePacked((_output))) == keccak256(abi.encodePacked(("false")))){
+        }else if (keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("false")))){
             //Invoice Not Paid Yet
             falseCount +=1;
         }else{
@@ -139,7 +136,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     }
     
     function releaseFunds() public onlyOwner{
-        if(true > false){
+        if(trueCount > falseCount){
             released = true;
         }else{
             //Reset them to 0 to be able to safely re run the oracles
@@ -178,8 +175,8 @@ contract ChainPal is ChainlinkClient, Ownable{
 contract ChainPalFactory{
     //Using OpenZepplins SafeMath Library for safe math information
     using SafeMath for uint256;
-    address[] LinkPalAddresses;
-    
+    //address[] public LinkPalAddresses;
+    mapping (address => address[]) public LinkPalAddresses; 
     /*Solidity Functions*/
     mapping (address => uint256) public  _balances;
     mapping (address => uint256) public  _lockedBalances;
@@ -224,7 +221,7 @@ contract ChainPalFactory{
         //Add to locked balance inaccessible to users
         _lockedBalances[msg.sender] = SafeMath.add(_lockedBalances[msg.sender],_amount);
         //If it didn't fail Lock that much into a balance
-        LinkPalAddresses.push(LinkPalAddress);
+        LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here
     }
     
@@ -238,7 +235,7 @@ contract ChainPalFactory{
 
     //This function is used to retrieve and verify that the paypal transaction went through,
     //Then Send the money back to the user.
-    function unlockETH(address _ChainPalAddress) internal{
+    function unlockETH(address _ChainPalAddress) public{
         require(ChainPal(_ChainPalAddress).getReleased() == true);
         //Add the locked amount to the senders balance
         _balances[msg.sender] = SafeMath.add(_balances[msg.sender],_lockedBalances[msg.sender]);
