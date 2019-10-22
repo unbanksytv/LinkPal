@@ -1,4 +1,5 @@
 pragma solidity 0.4.24;
+pragma experimental ABIEncoderV2;
 
 import "https://github.com/thodges-gh/chainlink/evm/contracts/ChainlinkClient.sol";
 import "https://github.com/thodges-gh/chainlink/evm/contracts/vendor/Ownable.sol";
@@ -74,14 +75,14 @@ contract ChainPal is ChainlinkClient, Ownable{
     uint256 public amount;
 
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
-    string[] jobIds
-    address[] oracles
+    string[] public jobIds;
+    address[] public oracles;
 
     constructor(
         string _invoiceID,
-        address public _sellerAddress,
-        address public _buyerAddress,
-        uint256 public _amount,
+        address  _sellerAddress,
+        address  _buyerAddress,
+        uint256  _amount,
         string[] _jobIds,
         address[] _oracles
     ){
@@ -120,18 +121,18 @@ contract ChainPal is ChainlinkClient, Ownable{
     }
 
     //This should fulfill the node request
-    function fulfillNodeRequest(bytes32 _requestId, uint256 _output)
+    function fulfillNodeRequest(bytes32 _requestId, string memory _output)
     public
     recordChainlinkFulfillment(_requestId)
     {
-        emit NodeRequestFulfilled(_requestId, _output);
+        //emit NodeRequestFulfilled(_requestId, _output);
         //Append to these to calculate if the funds should be released
-        if(_output = "true"){
+        if(keccak256(abi.encodePacked((_output))) == keccak256(abi.encodePacked(("true")))){
             //Invoice Paid
-            trueCount += 1
-        }else if (_output = "false"){
+            trueCount += 1;
+        }else if (keccak256(abi.encodePacked((_output))) == keccak256(abi.encodePacked(("false")))){
             //Invoice Not Paid Yet
-            falseCount +=1
+            falseCount +=1;
         }else{
             //Just Ignore it, Oracle is most probably down
         }
@@ -163,18 +164,18 @@ contract ChainPal is ChainlinkClient, Ownable{
     
     //Idk what this is going to be used for.
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
-    bytes memory tempEmptyStringTest = bytes(source);
-    if (tempEmptyStringTest.length == 0) {
-      return 0x0;
+        bytes memory tempEmptyStringTest = bytes(source);
+        if (tempEmptyStringTest.length == 0) {
+          return 0x0;
+        }
+        //Or this
+        assembly { // solhint-disable-line no-inline-assembly
+          result := mload(add(source, 32))
+        }    
     }
-    //Or this
-    assembly { // solhint-disable-line no-inline-assembly
-      result := mload(add(source, 32))
-    }    
-
 }
 
-contract ChainPalFactory {
+contract ChainPalFactory{
     //Using OpenZepplins SafeMath Library for safe math information
     using SafeMath for uint256;
     address[] LinkPalAddresses;
@@ -202,20 +203,20 @@ contract ChainPalFactory {
     //Specify the chainlink node and job too
     function createLinkPal(
         string _invoiceID,
-        address public _buyerAddress,
-        uint256 public _amount,
+        address  _buyerAddress,
+        uint256  _amount,
         string[] _jobIds,
         address[] _oracles
     ) public payable{
 
         require(_balances[msg.sender] > 0);
-        LinkPal LinkPalAddress = new ChainPal(
-            string _invoiceID,
+        ChainPal LinkPalAddress = new ChainPal(
+             _invoiceID,
             msg.sender,
-            address public _buyerAddress,
-            uint256 public _amount,
-            string[] _jobIds,
-            address[] _oracles
+            _buyerAddress,
+            _amount,
+            _jobIds,
+            _oracles
         );
         
         //Sub from balance
@@ -230,7 +231,7 @@ contract ChainPalFactory {
     //This function will be used to cancel the ETH transaction
     //Both parties must click it to be able to retrieve the ETH from the locked balance
     //Or a confirmation from the node that the paypal invoice was cancelled.
-    function cancelETH(){
+    function cancelETH() public{
         
     }
     
