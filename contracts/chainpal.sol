@@ -71,7 +71,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
-    string public returnedPinged;
+    bool public returnedPinged;
     constructor(
         string _invoiceID,
         address  _sellerAddress,
@@ -109,22 +109,20 @@ contract ChainPal is ChainlinkClient, Ownable{
         uint i = 0;
         Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
         req.add("invoice_id", invoiceID);
-        //req.add(invoice_id, invoiceID);
-        //Are these needed?
-        req.add("path", "result.data.paid");
-        //req.addInt("times", 100);
+        //req.add("path", "result.data.paid");
         sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
         //}
     }
 
     //This should fulfill the node request
-    function fulfillNodeRequest(bytes32 _requestId, string memory paid)
+    function fulfillNodeRequest(bytes32 _requestId, bool paid)
     public
     recordChainlinkFulfillment(_requestId)
     {
         returnedPinged = paid;
         //emit NodeRequestFulfilled(_requestId, _output);
         //Append to these to calculate if the funds should be released
+        /*
         if(keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("true")))){
             //Invoice Paid
             trueCount += 1;
@@ -134,6 +132,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         }else{
             //Just Ignore it, Oracle is most probably down
         }
+        */
     }
 
     function releaseFunds() public onlyOwner{
