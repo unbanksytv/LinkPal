@@ -71,7 +71,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
-
+    string public returnedPinged;
     constructor(
         string _invoiceID,
         address  _sellerAddress,
@@ -122,6 +122,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     public
     recordChainlinkFulfillment(_requestId)
     {
+        returnedPinged = paid;
         //emit NodeRequestFulfilled(_requestId, _output);
         //Append to these to calculate if the funds should be released
         if(keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("true")))){
@@ -134,7 +135,7 @@ contract ChainPal is ChainlinkClient, Ownable{
             //Just Ignore it, Oracle is most probably down
         }
     }
-    
+
     function releaseFunds() public onlyOwner{
         if(trueCount > falseCount){
             released = true;
@@ -150,15 +151,33 @@ contract ChainPal is ChainlinkClient, Ownable{
         return released;
     }
 
+    //Return the address of the Seller of the contract
+    function getSeller() public view returns(address){
+        return sellerAddress;
+    }
+
+    //Return the address of the Seller of the contract
+    function getBuyer() public view returns(address){
+        return buyerAddress;
+    }
+
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
-    
+
+    function getChainlinkToken() public view returns (address) {
+        return chainlinkTokenAddress();
+    }
+
+    function getAmount() public view returns(uint256){
+        return amount;
+    }
+
     function withdrawLink() public onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
     }
-    
+
     //Idk what this is going to be used for.
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
         bytes memory tempEmptyStringTest = bytes(source);
@@ -176,15 +195,15 @@ contract ChainPalFactory{
     //Using OpenZepplins SafeMath Library for safe math information
     using SafeMath for uint256;
     //address[] public LinkPalAddresses;
-    mapping (address => address[]) public LinkPalAddresses; 
+    mapping (address => address[]) public LinkPalAddresses;
     /*Solidity Functions*/
-    mapping (address => uint256) public  _balances;
-    mapping (address => uint256) public  _lockedBalances;
-    mapping (address => bool) public  _locks;
+    mapping (address => uint256) public  balances;
+    mapping (address => uint256) public  lockedBalances;
+    mapping (address => bool) public  locks;
 
     function deposit() public payable {
         require(msg.value > 0);
-        _balances[msg.sender] = SafeMath.add(msg.value,_balances[msg.sender]);
+        _balances[msg.sender] = SafeMath.add(msg.value,balances[msg.sender]);
     }
     
     function withdrawEth(uint256 _amount) public{
@@ -192,7 +211,7 @@ contract ChainPalFactory{
         require(_balances[msg.sender] >=  _amount);
         
         msg.sender.transfer(_amount);
-        _balances[msg.sender] =  SafeMath.sub(_balances[msg.sender],_amount);
+        balances[msg.sender] =  SafeMath.sub(balances[msg.sender],_amount);
     }
     
     //Need to figure out parameters 
@@ -205,7 +224,7 @@ contract ChainPalFactory{
         string[] _jobIds,
         address[] _oracles
     ) public payable{
-
+        //Probably need more requirement checks
         require(_balances[msg.sender] > 0);
         ChainPal LinkPalAddress = new ChainPal(
              _invoiceID,
@@ -215,32 +234,46 @@ contract ChainPalFactory{
             _jobIds,
             _oracles
         );
-        
+
         //Sub from balance
-        _balances[msg.sender] = SafeMath.sub(_balances[msg.sender],_amount);
+        balances[msg.sender] = SafeMath.sub(balances[msg.sender],_amount);
         //Add to locked balance inaccessible to users
-        _lockedBalances[msg.sender] = SafeMath.add(_lockedBalances[msg.sender],_amount);
+        lockedBalances[msg.sender] = SafeMath.add(lockedBalances[msg.sender],_amount);
         //If it didn't fail Lock that much into a balance
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here
     }
-    
+
     //This function will be used to cancel the ETH transaction
     //Both parties must click it to be able to retrieve the ETH from the locked balance
     //Or a confirmation from the node that the paypal invoice was cancelled.
     function cancelETH() public{
-        
+
     }
-    
+
+    //Function to just release funds to the seller immediately and transfer to their balance
+    function releaseFundsImmediately(address _ChainPalAddress) public{
+        address tempSellerAddress = ChainPal(_ChainPalAddress).getSeller();
+        address tempBuyerAddress = ChainPal(_ChainPalAddress).getBuyer();
+        uint256 lockedBalance = ChainPal(_ChainPalAddress).getAmount();
+        //Only Seller is required to transfer the funds
+        require(tempSellerAddress == msg.sender,"User doesn't have given contract address deployed under it");
+        require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
+
+        //Remove that amount of locked balance from the buyer
+        lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
+
+        //Add the locked balance to the actual balance of the buyer
+        balances[tempBuyerAddress] = SafeMath.add(balances[tempBuyerAddress],lockedBalance);
+    }
 
     //This function is used to retrieve and verify that the paypal transaction went through,
     //Then Send the money back to the user.
     function unlockETH(address _ChainPalAddress) public{
-        require(ChainPal(_ChainPalAddress).getReleased() == true);
+        require(ChainPal(_ChainPalAddress).getReleased() == true, "Funds aren't released for this contract address");
         //Add the locked amount to the senders balance
         _balances[msg.sender] = SafeMath.add(_balances[msg.sender],_lockedBalances[msg.sender]);
         //Set the locked balance to 0 for the message sender
         _lockedBalances[msg.sender] = 0;
     }
-    
 }
