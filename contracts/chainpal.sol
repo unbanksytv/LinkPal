@@ -53,6 +53,17 @@ library SafeMath {
         return a % b;
     }
 }
+/*
+Basic info to test node
+
+MHRNUJCVDB4J7TF7
+0x9B4019D3b0F29F4A840392960b249c3AD0C5e073
+0xa0305333E22Aa2Ef3c624c27CE9ba0d107BA00c5
+10
+["892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a"]
+["0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1"]
+
+*/
 
 //Proxy Contract to test functions without Link Interferance
 contract ChainPal is ChainlinkClient, Ownable{
@@ -71,7 +82,6 @@ contract ChainPal is ChainlinkClient, Ownable{
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
-    bool public returnedPinged;
     constructor(
         string _invoiceID,
         address  _sellerAddress,
@@ -103,15 +113,17 @@ contract ChainPal is ChainlinkClient, Ownable{
     function requestConfirmations()
     public 
     onlyBuyer{
+
+        //Reset them to 0 to be able to safely re-run the oracles
+        trueCount = 0;
+        falseCount = 0;
+
         //Loop to iterate through all the responses from different nodes
-        //for(uint i = 0; i < oracles.length; i++){
-        //Putting this in a for loop 
-        uint i = 0;
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
-        req.add("invoice_id", invoiceID);
-        //req.add("path", "result.data.paid");
-        sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
-        //}
+        for(uint i = 0; i < oracles.length; i++){
+            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
+            req.add("invoice_id", invoiceID);
+            sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
+        }
     }
 
     //This should fulfill the node request
@@ -119,35 +131,17 @@ contract ChainPal is ChainlinkClient, Ownable{
     public
     recordChainlinkFulfillment(_requestId)
     {
-        returnedPinged = paid;
         //emit NodeRequestFulfilled(_requestId, _output);
         //Append to these to calculate if the funds should be released
-        /*
-        if(keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("true")))){
+        if(paid == true) {
             //Invoice Paid
             trueCount += 1;
-        }else if (keccak256(abi.encodePacked((paid))) == keccak256(abi.encodePacked(("false")))){
+        }else if (paid == false){
             //Invoice Not Paid Yet
             falseCount +=1;
         }else{
-            //Just Ignore it, Oracle is most probably down
+            //Just Ignore it, Oracle is most probably down or the wrong ID was given.
         }
-        */
-    }
-
-    function releaseFunds() public onlyOwner{
-        if(trueCount > falseCount){
-            released = true;
-        }else{
-            //Reset them to 0 to be able to safely re run the oracles
-            trueCount = 0;
-            falseCount = 0;
-        }
-    }
-
-    //Return the released funds to be checked by Factory Contract
-    function getReleased() public view returns(bool){
-        return released;
     }
 
     //Return the address of the Seller of the contract
@@ -160,12 +154,21 @@ contract ChainPal is ChainlinkClient, Ownable{
         return buyerAddress;
     }
 
+    //This isnt really needed
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
 
     function getAmount() public view returns(uint256){
         return amount;
+    }
+
+    function getTrueCount() public view returns(uint8){
+        return trueCount;
+    }
+
+    function getFalseCount() public view returns(uint8){
+        return falseCount;
     }
 
     function withdrawLink() public onlyOwner {
@@ -200,7 +203,7 @@ contract ChainPalFactory{
         require(msg.value > 0);
         balances[msg.sender] = SafeMath.add(msg.value,balances[msg.sender]);
     }
-    
+
     function withdrawEth(uint256 _amount) public{
         require(_amount > 0);
         require(balances[msg.sender] >=  _amount);
@@ -208,8 +211,8 @@ contract ChainPalFactory{
         msg.sender.transfer(_amount);
         balances[msg.sender] =  SafeMath.sub(balances[msg.sender],_amount);
     }
-    
-    //Need to figure out parameters 
+
+    //Need to figure out parameters
     //Link, Address To, ETH amount, Lock that amount of ETH
     //Specify the chainlink node and job too
     function createLinkPal(
@@ -220,7 +223,7 @@ contract ChainPalFactory{
         address[] _oracles
     ) public payable{
         //Probably need more requirement checks
-        require(balances[msg.sender] > 0);
+        require(balances[msg.sender] >= _amount,"Insufficient Funds");
         ChainPal LinkPalAddress = new ChainPal(
              _invoiceID,
             msg.sender,
@@ -252,23 +255,29 @@ contract ChainPalFactory{
         address tempBuyerAddress = ChainPal(_ChainPalAddress).getBuyer();
         uint256 lockedBalance = ChainPal(_ChainPalAddress).getAmount();
         //Only Seller is required to transfer the funds
-        require(tempSellerAddress == msg.sender,"User doesn't have given contract address deployed under it");
         require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
-
+        require(tempSellerAddress == msg.sender,"Only the seller can immediately verify the payment");
         //Remove that amount of locked balance from the buyer
         lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
 
-        //Add the locked balance to the actual balance of the buyer
-        balances[tempBuyerAddress] = SafeMath.add(balances[tempBuyerAddress],lockedBalance);
+        //Add the locked balance to the actual balance of the Seller
+        balances[tempSellerAddress] = SafeMath.add(balances[tempSellerAddress],lockedBalance);
     }
 
     //This function is used to retrieve and verify that the paypal transaction went through,
     //Then Send the money back to the user.
     function unlockETH(address _ChainPalAddress) public{
-        require(ChainPal(_ChainPalAddress).getReleased() == true, "Funds aren't released for this contract address");
-        //Add the locked amount to the senders balance
-        balances[msg.sender] = SafeMath.add(balances[msg.sender],lockedBalances[msg.sender]);
-        //Set the locked balance to 0 for the message sender
-        lockedBalances[msg.sender] = 0;
+        require(ChainPal(_ChainPalAddress).getTrueCount() > ChainPal(_ChainPalAddress).getFalseCount(),"Oracles haven't verified the paymen");
+        require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
+
+        address tempBuyerAddress = ChainPal(_ChainPalAddress).getBuyer();
+        address tempSellerAddress = ChainPal(_ChainPalAddress).getSeller();
+        uint256 lockedBalance = ChainPal(_ChainPalAddress).getAmount();
+
+        //Remove that amount of locked balance from the buyer
+        lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
+
+        //Add the locked balance to the actual balance of the buyer
+        balances[tempSellerAddress] = SafeMath.add(balances[tempSellerAddress],lockedBalance);
     }
 }
