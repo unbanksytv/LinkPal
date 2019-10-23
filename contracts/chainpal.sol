@@ -111,7 +111,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         req.add("invoice_id", invoiceID);
         //req.add(invoice_id, invoiceID);
         //Are these needed?
-        //req.add("path", "USD");
+        req.add("path", "result.data.paid");
         //req.addInt("times", 100);
         sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
         //}
@@ -165,10 +165,6 @@ contract ChainPal is ChainlinkClient, Ownable{
         return chainlinkTokenAddress();
     }
 
-    function getChainlinkToken() public view returns (address) {
-        return chainlinkTokenAddress();
-    }
-
     function getAmount() public view returns(uint256){
         return amount;
     }
@@ -203,12 +199,12 @@ contract ChainPalFactory{
 
     function deposit() public payable {
         require(msg.value > 0);
-        _balances[msg.sender] = SafeMath.add(msg.value,balances[msg.sender]);
+        balances[msg.sender] = SafeMath.add(msg.value,balances[msg.sender]);
     }
     
     function withdrawEth(uint256 _amount) public{
         require(_amount > 0);
-        require(_balances[msg.sender] >=  _amount);
+        require(balances[msg.sender] >=  _amount);
         
         msg.sender.transfer(_amount);
         balances[msg.sender] =  SafeMath.sub(balances[msg.sender],_amount);
@@ -225,7 +221,7 @@ contract ChainPalFactory{
         address[] _oracles
     ) public payable{
         //Probably need more requirement checks
-        require(_balances[msg.sender] > 0);
+        require(balances[msg.sender] > 0);
         ChainPal LinkPalAddress = new ChainPal(
              _invoiceID,
             msg.sender,
@@ -272,8 +268,8 @@ contract ChainPalFactory{
     function unlockETH(address _ChainPalAddress) public{
         require(ChainPal(_ChainPalAddress).getReleased() == true, "Funds aren't released for this contract address");
         //Add the locked amount to the senders balance
-        _balances[msg.sender] = SafeMath.add(_balances[msg.sender],_lockedBalances[msg.sender]);
+        balances[msg.sender] = SafeMath.add(balances[msg.sender],lockedBalances[msg.sender]);
         //Set the locked balance to 0 for the message sender
-        _lockedBalances[msg.sender] = 0;
+        lockedBalances[msg.sender] = 0;
     }
 }
