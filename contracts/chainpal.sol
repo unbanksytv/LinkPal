@@ -3,70 +3,20 @@ pragma experimental ABIEncoderV2;
 
 import "https://github.com/thodges-gh/chainlink/evm/contracts/ChainlinkClient.sol";
 import "https://github.com/thodges-gh/chainlink/evm/contracts/vendor/Ownable.sol";
-
-//SafeMath library to perform safe arithmetic operations
-library SafeMath {
-
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        // Solidity only automatically asserts when dividing by 0
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        return c;
-    }
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
 /*
 Basic info to test node
 
 MHRNUJCVDB4J7TF7
 0x9B4019D3b0F29F4A840392960b249c3AD0C5e073
 0xa0305333E22Aa2Ef3c624c27CE9ba0d107BA00c5
-10
+10e
 ["892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a"]
 ["0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1"]
 
 */
 
 //Proxy Contract to test functions without Link Interferance
-contract ChainPal is ChainlinkClient, Ownable{
+contract ChainPal is ChainlinkClient{
 
     //Set the payment as one Oracle time the amount of link the contract has I Believe?
     uint256 constant private ORACLE_PAYMENT = 1 * LINK;
@@ -90,7 +40,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         uint256  _amount,
         string[] _jobIds,
         address[] _oracles
-    )public Ownable{
+    )public payable{
         trueCount = 0;
         falseCount = 0;
         released = false;
@@ -130,7 +80,7 @@ contract ChainPal is ChainlinkClient, Ownable{
 
     //This should fulfill the node request
     function fulfillNodeRequest(bytes32 _requestId, bool paid)
-    internal
+    public
     recordChainlinkFulfillment(_requestId)
     {
         //emit NodeRequestFulfilled(_requestId, _output);
@@ -171,7 +121,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     }
 
     //Withdraw Link from contract
-    function withdrawLink() public onlyOwner {
+    function withdrawLink() public {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
     }
@@ -201,6 +151,17 @@ contract ChainPalFactory{
     ) public payable{
         //Probably need more requirement checks
         require(msg.value > 0,"No Negative Values are allowed");
+        
+        address LinkPalAddress = (new ChainPal).value(address(this).balance)(
+             _invoiceID,
+            msg.sender,
+            _buyerAddress,
+            msg.value,
+            _jobIds,
+            _oracles
+        );
+        
+        /*
         ChainPal LinkPalAddress = new ChainPal(
              _invoiceID,
             msg.sender,
@@ -209,6 +170,10 @@ contract ChainPalFactory{
             _jobIds,
             _oracles
         );
+        
+        //Send the funds to the deployed contract
+        address(LinkPalAddress).transfer(address(this).balance);
+        */
         //If it didn't fail Lock that much into a balance
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here
