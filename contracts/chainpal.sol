@@ -107,7 +107,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
         _;
     }
-
+    
     //Might Encounter ORACLE_PAYMENT problems with more than one oracle 
     //Needs more testing
     function requestConfirmations()
@@ -139,8 +139,9 @@ contract ChainPal is ChainlinkClient, Ownable{
         }else if (paid == false){
             //Invoice Not Paid Yet
             falseCount +=1;
-        }else{
-            //Just Ignore it, Oracle is most probably down or the wrong ID was given.
+        }
+        if(trueCount > falseCount){
+            released = true;
         }
     }
 
@@ -158,19 +159,17 @@ contract ChainPal is ChainlinkClient, Ownable{
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
-
+    
+    //Check if confirmations are completed
+    function getReleased() public view returns(bool){
+        return released;
+    }
+    
     function getAmount() public view returns(uint256){
         return amount;
     }
-
-    function getTrueCount() public view returns(uint8){
-        return trueCount;
-    }
-
-    function getFalseCount() public view returns(uint8){
-        return falseCount;
-    }
-
+    
+    //Withdraw Link from contract 
     function withdrawLink() public onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
@@ -192,12 +191,10 @@ contract ChainPal is ChainlinkClient, Ownable{
 contract ChainPalFactory{
     //Using OpenZepplins SafeMath Library for safe math information
     using SafeMath for uint256;
-    //address[] public LinkPalAddresses;
     mapping (address => address[]) public LinkPalAddresses;
     /*Solidity Functions*/
     mapping (address => uint256) public  balances;
     mapping (address => uint256) public  lockedBalances;
-    mapping (address => bool) public  locks;
 
     function deposit() public payable {
         require(msg.value > 0);
@@ -267,12 +264,12 @@ contract ChainPalFactory{
     //This function is used to retrieve and verify that the paypal transaction went through,
     //Then Send the money back to the user.
     function unlockETH(address _ChainPalAddress) public{
-        require(ChainPal(_ChainPalAddress).getTrueCount() > ChainPal(_ChainPalAddress).getFalseCount(),"Oracles haven't verified the paymen");
+        ChainPal chainPal = ChainPal(_ChainPalAddress);
+        require(chainPal.getReleased() == true,"Oracles haven't verified the payment");
+        address tempBuyerAddress = chainPal.getBuyer();
+        uint256 lockedBalance = chainPal.getAmount();
         require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
-
-        address tempBuyerAddress = ChainPal(_ChainPalAddress).getBuyer();
-        address tempSellerAddress = ChainPal(_ChainPalAddress).getSeller();
-        uint256 lockedBalance = ChainPal(_ChainPalAddress).getAmount();
+        address tempSellerAddress = chainPal.getSeller();
 
         //Remove that amount of locked balance from the buyer
         lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
