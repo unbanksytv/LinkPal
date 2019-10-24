@@ -5,11 +5,10 @@ import "https://github.com/thodges-gh/chainlink/evm/contracts/ChainlinkClient.so
 import "https://github.com/thodges-gh/chainlink/evm/contracts/vendor/Ownable.sol";
 /*
 Basic info to test node
-
 MHRNUJCVDB4J7TF7
 0x9B4019D3b0F29F4A840392960b249c3AD0C5e073
 0xa0305333E22Aa2Ef3c624c27CE9ba0d107BA00c5
-10e
+10
 ["892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a"]
 ["0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1"]
 
@@ -29,6 +28,9 @@ contract ChainPal is ChainlinkClient{
     address public buyerAddress;
     uint256 public amount;
 
+    event successNodeResponse(
+        bool success
+    );
 
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
@@ -95,6 +97,7 @@ contract ChainPal is ChainlinkClient{
         if(trueCount > falseCount){
             released = true;
         }
+        successNodeResponse(released);
     }
 
     //This isnt really needed
@@ -107,6 +110,7 @@ contract ChainPal is ChainlinkClient{
     //If enough time has passed seller can withdraw the eth
     //If the checks pass then the buyer can withdraw the eth
     //Maybe modifications that the seller can send the ETH to the buyer.
+
     function withdrawETH() public{
         if(msg.sender == sellerAddress && released == false){
             //Check time
@@ -140,6 +144,11 @@ contract ChainPal is ChainlinkClient{
 
 contract ChainPalFactory{
     mapping (address => address[]) public LinkPalAddresses;
+
+    event contractDeployed(
+        address LinkPalAddress;
+    );
+
     //Need to figure out parameters
     //Link, Address To, ETH amount, Lock that amount of ETH
     //Specify the chainlink node and job too
@@ -176,6 +185,7 @@ contract ChainPalFactory{
         */
         //If it didn't fail Lock that much into a balance
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
-        //Emit an event here
+        //Emit an event here\
+        contractDeployed(LinkPalAddress);
     }
 }
