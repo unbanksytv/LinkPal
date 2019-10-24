@@ -104,16 +104,17 @@ contract ChainPal is ChainlinkClient, Ownable{
     }
 
     //modifier to only allow buyers to access functions
-    modifier onlyBuyer(){
-        require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
+    modifier buyerSeller(){
+        require(sellerAddress == msg.sender || buyerAddress == msg.sender,"Unauthorised , must be Buyer");
         _;
     }
-    
-    //Might Encounter ORACLE_PAYMENT problems with more than one oracle 
+
+    //Might Encounter ORACLE_PAYMENT problems with more than one oracle
     //Needs more testing
     function requestConfirmations()
-    public 
-    onlyBuyer{
+    public
+    {
+        require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
         //Reset them to 0 to be able to safely re-run the oracles
         trueCount = 0;
         falseCount = 0;
@@ -129,7 +130,7 @@ contract ChainPal is ChainlinkClient, Ownable{
 
     //This should fulfill the node request
     function fulfillNodeRequest(bytes32 _requestId, bool paid)
-    public
+    internal
     recordChainlinkFulfillment(_requestId)
     {
         //emit NodeRequestFulfilled(_requestId, _output);
@@ -139,7 +140,10 @@ contract ChainPal is ChainlinkClient, Ownable{
             trueCount += 1;
         }else if (paid == false){
             //Invoice Not Paid Yet
-            falseCount +=1;
+            falseCount += 1;
+        }
+        if(trueCount > falseCount){
+            released = true;
         }
     }
 
@@ -154,8 +158,15 @@ contract ChainPal is ChainlinkClient, Ownable{
     //If the checks pass then the buyer can withdraw the eth
     //Maybe modifications that the seller can send the ETH to the buyer.
     function withdrawETH() public{
-        if(trueCount > falseCount){
-            released = true;
+        if(msg.sender == sellerAddress && released == false){
+            //Check time
+            //If a day has passed then the seller can take back his ETH
+            address(msg.sender).transfer(amount);
+        }else if (msg.sender == buyerAddress && released == true){
+            //Withdraw the ETH from the contract
+            address(msg.sender).transfer(amount);
+        }else{
+            //Do Nothing cause you do not have access to this contract
         }
     }
 
