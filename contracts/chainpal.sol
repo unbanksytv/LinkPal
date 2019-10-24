@@ -79,6 +79,7 @@ contract ChainPal is ChainlinkClient, Ownable{
     address public buyerAddress;
     uint256 public amount;
 
+
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
@@ -101,7 +102,7 @@ contract ChainPal is ChainlinkClient, Ownable{
         oracles = _oracles;
         setPublicChainlinkToken();
     }
-    
+
     //modifier to only allow buyers to access functions
     modifier onlyBuyer(){
         require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
@@ -113,7 +114,6 @@ contract ChainPal is ChainlinkClient, Ownable{
     function requestConfirmations()
     public 
     onlyBuyer{
-
         //Reset them to 0 to be able to safely re-run the oracles
         trueCount = 0;
         falseCount = 0;
@@ -124,6 +124,7 @@ contract ChainPal is ChainlinkClient, Ownable{
             req.add("invoice_id", invoiceID);
             sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
         }
+
     }
 
     //This should fulfill the node request
@@ -140,141 +141,65 @@ contract ChainPal is ChainlinkClient, Ownable{
             //Invoice Not Paid Yet
             falseCount +=1;
         }
-        if(trueCount > falseCount){
-            released = true;
-        }
-    }
-
-    //Return the address of the Seller of the contract
-    function getSeller() public view returns(address){
-        return sellerAddress;
-    }
-
-    //Return the address of the Seller of the contract
-    function getBuyer() public view returns(address){
-        return buyerAddress;
     }
 
     //This isnt really needed
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
-    
-    //Check if confirmations are completed
-    function getReleased() public view returns(bool){
-        return released;
+
+    //Withdraw ETH from contract
+    //Checks on who can withdraw should only be accessible by buyer and seller
+    //If enough time has passed seller can withdraw the eth
+    //If the checks pass then the buyer can withdraw the eth
+    //Maybe modifications that the seller can send the ETH to the buyer.
+    function withdrawETH() public{
+        if(trueCount > falseCount){
+            released = true;
+        }
     }
-    
-    function getAmount() public view returns(uint256){
-        return amount;
-    }
-    
-    //Withdraw Link from contract 
+
+    //Withdraw Link from contract
     function withdrawLink() public onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
     }
 
-    //Idk what this is going to be used for.
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
         bytes memory tempEmptyStringTest = bytes(source);
         if (tempEmptyStringTest.length == 0) {
           return 0x0;
         }
         //Or this
-        assembly { // solhint-disable-line no-inline-assembly
+        assembly{
           result := mload(add(source, 32))
-        }    
+        }
     }
 }
 
 contract ChainPalFactory{
-    //Using OpenZepplins SafeMath Library for safe math information
-    using SafeMath for uint256;
     mapping (address => address[]) public LinkPalAddresses;
-    /*Solidity Functions*/
-    mapping (address => uint256) public  balances;
-    mapping (address => uint256) public  lockedBalances;
-
-    function deposit() public payable {
-        require(msg.value > 0);
-        balances[msg.sender] = SafeMath.add(msg.value,balances[msg.sender]);
-    }
-
-    function withdrawEth(uint256 _amount) public{
-        require(_amount > 0);
-        require(balances[msg.sender] >=  _amount);
-        
-        msg.sender.transfer(_amount);
-        balances[msg.sender] =  SafeMath.sub(balances[msg.sender],_amount);
-    }
-
     //Need to figure out parameters
     //Link, Address To, ETH amount, Lock that amount of ETH
     //Specify the chainlink node and job too
     function createLinkPal(
         string _invoiceID,
         address  _buyerAddress,
-        uint256  _amount,
         string[] _jobIds,
         address[] _oracles
     ) public payable{
         //Probably need more requirement checks
-        require(balances[msg.sender] >= _amount,"Insufficient Funds");
+        require(msg.value > 0,"No Negative Values are allowed");
         ChainPal LinkPalAddress = new ChainPal(
              _invoiceID,
             msg.sender,
             _buyerAddress,
-            _amount,
+            msg.value,
             _jobIds,
             _oracles
         );
-
-        //Sub from balance
-        balances[msg.sender] = SafeMath.sub(balances[msg.sender],_amount);
-        //Add to locked balance inaccessible to users
-        lockedBalances[msg.sender] = SafeMath.add(lockedBalances[msg.sender],_amount);
         //If it didn't fail Lock that much into a balance
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here
-    }
-
-    //This function will be used to cancel the ETH transaction
-    //Both parties must click it to be able to retrieve the ETH from the locked balance
-    //Or a confirmation from the node that the paypal invoice was cancelled.
-    function cancelETH() public{
-
-    }
-
-    //Function to just release funds to the seller immediately and transfer to their balance
-    function releaseFundsImmediately(address _ChainPalAddress) public{
-        address tempSellerAddress = ChainPal(_ChainPalAddress).getSeller();
-        address tempBuyerAddress = ChainPal(_ChainPalAddress).getBuyer();
-        uint256 lockedBalance = ChainPal(_ChainPalAddress).getAmount();
-        //Only Seller is required to transfer the funds
-        require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
-        require(tempSellerAddress == msg.sender,"Only the seller can immediately verify the payment");
-        //Remove that amount of locked balance from the buyer
-        lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
-
-        //Add the locked balance to the actual balance of the Seller
-        balances[tempSellerAddress] = SafeMath.add(balances[tempSellerAddress],lockedBalance);
-    }
-
-    //This function is used to retrieve and verify that the paypal transaction went through,
-    //Then Send the money back to the user.
-    function unlockETH(address _ChainPalAddress) public{
-        ChainPal chainPal = ChainPal(_ChainPalAddress);
-        require(chainPal.getReleased() == true,"Oracles haven't verified the payment");
-        address tempBuyerAddress = chainPal.getBuyer();
-        uint256 lockedBalance = chainPal.getAmount();
-        require(lockedBalances[tempBuyerAddress] >= lockedBalance, "Locked Balance According to contract is incorrect");
-        address tempSellerAddress = chainPal.getSeller();
-
-        //Remove that amount of locked balance from the buyer
-        lockedBalances[tempBuyerAddress] = SafeMath.sub(lockedBalances[tempBuyerAddress], lockedBalance);
-
-        //Add the locked balance to the actual balance of the buyer
-        balances[tempSellerAddress] = SafeMath.add(balances[tempSellerAddress],lockedBalance);
     }
 }
