@@ -27,6 +27,7 @@ contract ChainPal is ChainlinkClient{
     address public sellerAddress;
     address public buyerAddress;
     uint256 public amount;
+    uint256 public deploymentTime;
 
     event successNodeResponse(
         bool success
@@ -43,6 +44,7 @@ contract ChainPal is ChainlinkClient{
         string[] _jobIds,
         address[] _oracles
     )public payable{
+        deploymentTime = block.timestamp;
         trueCount = 0;
         falseCount = 0;
         released = false;
@@ -112,7 +114,7 @@ contract ChainPal is ChainlinkClient{
     //Maybe modifications that the seller can send the ETH to the buyer.
 
     function withdrawETH() public{
-        if(msg.sender == sellerAddress && released == false){
+        if(msg.sender == sellerAddress && released == false && deploymentTime >= block.timestamp + 1 days){
             //Check time
             //If a day has passed then the seller can take back his ETH
             address(msg.sender).transfer(amount);
@@ -126,6 +128,7 @@ contract ChainPal is ChainlinkClient{
 
     //Withdraw Link from contract
     function withdrawLink() public {
+        require(buyerAddress == msg.sender,"Unauthorised , must be Buyer");
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
     }
@@ -160,7 +163,7 @@ contract ChainPalFactory{
     ) public payable{
         //Probably need more requirement checks
         require(msg.value > 0,"No Negative Values are allowed");
-        
+
         address LinkPalAddress = (new ChainPal).value(address(this).balance)(
              _invoiceID,
             msg.sender,
@@ -169,21 +172,6 @@ contract ChainPalFactory{
             _jobIds,
             _oracles
         );
-        
-        /*
-        ChainPal LinkPalAddress = new ChainPal(
-             _invoiceID,
-            msg.sender,
-            _buyerAddress,
-            msg.value,
-            _jobIds,
-            _oracles
-        );
-        
-        //Send the funds to the deployed contract
-        address(LinkPalAddress).transfer(address(this).balance);
-        */
-        //If it didn't fail Lock that much into a balance
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here\
         contractDeployed(LinkPalAddress);
