@@ -99,7 +99,7 @@ contract ChainPal is ChainlinkClient{
         if(trueCount > falseCount){
             released = true;
         }
-        successNodeResponse(released);
+       emit successNodeResponse(released);
     }
 
     //This isnt really needed
@@ -112,10 +112,8 @@ contract ChainPal is ChainlinkClient{
     //If enough time has passed seller can withdraw the eth
     //If the checks pass then the buyer can withdraw the eth
     //Maybe modifications that the seller can send the ETH to the buyer.
-
     function withdrawETH() public{
-        if(msg.sender == sellerAddress && released == false && deploymentTime >= block.timestamp + 1 days){
-            //Check time
+        if(msg.sender == sellerAddress && deploymentTime >= block.timestamp + 1 days && released == false){
             //If a day has passed then the seller can take back his ETH
             address(msg.sender).transfer(amount);
         }else if (msg.sender == buyerAddress && released == true){
@@ -149,7 +147,7 @@ contract ChainPalFactory{
     mapping (address => address[]) public LinkPalAddresses;
 
     event contractDeployed(
-        address LinkPalAddress;
+        address LinkPalAddress
     );
 
     //Need to figure out parameters
@@ -174,6 +172,6 @@ contract ChainPalFactory{
         );
         LinkPalAddresses[msg.sender].push(LinkPalAddress);
         //Emit an event here\
-        contractDeployed(LinkPalAddress);
+        emit contractDeployed(LinkPalAddress);
     }
 }
