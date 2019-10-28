@@ -531,12 +531,13 @@ var Factory = new web3.eth.Contract(abiFactory,contractAddress);
 var deployedContract;
 
 class App extends Component {
-  
   constructor(props){
     super(props);
     this.state = {
         invoiceID : '',
+        senderAddress : '',
         buyerAddress : '',
+        amount : '',
         jobIds : [],
         oracles : []
     };

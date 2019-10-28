@@ -113,9 +113,12 @@ contract ChainPal is ChainlinkClient{
     //If the checks pass then the buyer can withdraw the eth
     //Maybe modifications that the seller can send the ETH to the buyer.
     function withdrawETH() public{
-        if(msg.sender == sellerAddress && deploymentTime >= block.timestamp + 1 days && released == false){
-            //If a day has passed then the seller can take back his ETH
-            address(msg.sender).transfer(amount);
+        if(msg.sender == sellerAddress && deploymentTime >= block.timestamp + 1 days){
+            requestConfirmations();
+            if(released == false){
+                //If a day has passed then the seller can take back his ETH
+                address(msg.sender).transfer(amount);
+            }
         }else if (msg.sender == buyerAddress && released == true){
             //Withdraw the ETH from the contract
             address(msg.sender).transfer(amount);
