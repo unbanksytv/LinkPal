@@ -1,6 +1,6 @@
 
 
-# LinkPal P2P Ethereum to Paypal
+# LinkPal P2P Ethereum to Fiat via Paypal
 
 ## Problem
 
