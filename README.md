@@ -1,99 +1,26 @@
-# Chainlink Truffle Box
 
-Implementation of a [Chainlink requesting contract](https://docs.chain.link/docs/create-a-chainlinked-project).
 
-## Requirements
+# LinkPal P2P Ethereum to Paypal
 
-- NPM
+## Problem
 
-## Installation
+The problem of having peer-to-peer Ethereum to Fiat exchanges is that there is no enforced trust, the crypto seller could receive the fiat and choose not to pay the buyer or vice versa the buyer could receive the crypto and choose not to pay the seller. There are solutions to this problem but they come in centralized forms which would require trusting a third party and having to provide identification.
 
-Package installation should have occurred for you during the Truffle Box setup. However, if you add dependencies, you'll need to add them to the project by running:
+## Solution
 
-```bash
-npm install
-```
+The solution was to use smart contracts that can interact with real world data through the use of ChainLink. The use of ChainLink allows the contract to be able to confirm whether or not a paypal invoice has been paid. Multiple ChainLink nodes can be used to increase decentralization and security of the validations.
 
-Or
+## Procedure
 
-```bash
-yarn install
-```
+- Users wanting to sell or buy Ethereum would first go to www.reddit.com/r/linkpal/ and make arrangements with other users, this is 	done as the current website doesn't cater for listings.
 
-## Test
+- After an arrangement has been made the seller creates a paypal invoice with an agreed amount to be paid.
+- The seller then navigates to to www.linkpal.io where they would create a new contract with the needed details such as the buyers 	address, invoice ID, Ethereum to deposit and the selected ChainLink Nodes/Job IDs.
+- Once the contract is deployed the seller must fund the deployed contract with LINK so that once the buyer pays the invoice either 	the seller or the buyer can run the confirmations on the contract to release the Ethereum funds.
+- Once it has been confirmed to be paid by the contract the buyer can withdraw their funds and either the seller or buyer can 	       withdraw unused LINK.
 
-```bash
-npm test
-```
+## Some Notes
 
-## Deploy
+- A Seller should select up to 3 nodes for cost efficient and secure confirmations, the more nodes chosen the more secure it is but it costs more in terms of LINK and Ethereum to run the confirmations.
+- If the Buyer doesn't pay the invoice then after a day of deployment and running the confirmations can the Seller get his Ethereum back.
 
-If needed, edit the `truffle-config.js` config file to set the desired network to a different port. It assumes any network is running the RPC port on 8545.
-
-```bash
-npm run migrate:dev
-```
-
-For deploying to live networks, Truffle will use `truffle-hdwallet-provider` for your mnemonic and an RPC URL. Set your environment variables `$RPC_URL` and `$MNEMONIC` before running:
-
-```bash
-npm run migrate:live
-```
-
-## Helper Scripts
-
-There are 3 helper scripts provided with this box in the scripts directory:
-
-- `fund-contract.js`
-- `request-data.js`
-- `read-contract.js`
-
-They can be used by calling them from `npx truffle exec`, for example:
-
-```bash
-npx truffle exec scripts/fund-contract.js --network live
-```
-
-The CLI will output something similar to the following:
-
-```
-Using network 'live'.
-
-Funding contract: 0x972DB80842Fdaf6015d80954949dBE0A1700705E
-0xd81fcf7bfaf8660149041c823e843f0b2409137a1809a0319d26db9ceaeef650
-Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
-```
-
-In the `request-data.js` script, example parameters are provided for you. You can change the oracle address, Job ID, and parameters based on the information available on [our documentation](https://docs.chain.link/docs/testnet-oracles).
-
-```bash
-npx truffle exec scripts/request-data.js --network live
-```
-
-This creates a request and will return the transaction ID, for example:
-
-```
-Using network 'live'.
-
-Creating request on contract: 0x972DB80842Fdaf6015d80954949dBE0A1700705E
-0x828f256109f22087b0804a4d1a5c25e8ce9e5ac4bbc777b5715f5f9e5b181a4b
-Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
-```
-
-After creating a request on a live network, you will want to wait 3 blocks for the Chainlink node to respond. Then call the `read-contract.js` script to read the contract's state.
-
-```bash
-npx truffle exec scripts/read-contract.js --network live
-```
-
-Once the oracle has responded, you will receive a value similar to the one below:
-
-```
-Using network 'live'.
-
-21568
-Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
-```
