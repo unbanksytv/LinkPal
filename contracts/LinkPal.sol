@@ -106,7 +106,11 @@ contract LinkPal is ChainlinkClient{
         if(trueCount > falseCount){
             released = true;
         }
+<<<<<<< Updated upstream:contracts/LinkPal.sol
         emit successNodeResponse(released);
+=======
+       emit successNodeResponse(released);
+>>>>>>> Stashed changes:contracts/chainpal.sol
     }
 
     //This isnt really needed
@@ -119,12 +123,21 @@ contract LinkPal is ChainlinkClient{
     //If enough time has passed seller can withdraw the eth 
     //If the checks pass then the buyer can withdraw the eth 
     //Maybe modifications that the seller can send the ETH to the buyer.
+<<<<<<< Updated upstream:contracts/LinkPal.sol
     function withdrawETH() public buyerSellerContract {
         if(msg.sender == sellerAddress && deploymentTime <= block.timestamp + 1 minutes && (trueCount != 0 || falseCount != 0)){
             if(released == false){
                 //If a day has passed then the seller can take back his ETH
                 address(msg.sender).transfer(amount);
                 amount = 0;
+=======
+    function withdrawETH() public{
+        if(msg.sender == sellerAddress && deploymentTime >= block.timestamp + 1 days){
+            requestConfirmations();
+            if(released == false){
+                //If a day has passed then the seller can take back his ETH
+                address(msg.sender).transfer(amount);
+>>>>>>> Stashed changes:contracts/chainpal.sol
             }
         }else if (msg.sender == buyerAddress && released == true){
             //Withdraw the ETH from the contract
