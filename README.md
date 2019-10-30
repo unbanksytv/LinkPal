@@ -24,3 +24,14 @@ The solution was to use smart contracts that can interact with real world data t
 - A Seller should select up to 3 nodes for cost efficient and secure confirmations, the more nodes chosen the more secure it is but it costs more in terms of LINK and Ethereum to run the confirmations.
 - If the Buyer doesn't pay the invoice then after a day of deployment and running the confirmations can the Seller get his Ethereum back.
 
+## How it Works
+
+In this section we will give you more details in terms of how the contract works.
+
+### The Adapter
+
+The Adapter uses a custom API that parses the paypal link together with the invoice ID to retrieve the true/false boolean determining if the invoice was paid or not. This is triggered by the ChainLink Node which in turn is called by the Smart Contract.
+
+### The Smart Contracts
+There is a factory contract that produces children containing the funds and all the ChainLink functionality to do the transfers and confirmations.
+
