@@ -4,11 +4,13 @@
 
 ## Problem
 
-The problem of having peer-to-peer Ethereum to Fiat exchanges is that there is no enforced trust, the crypto seller could receive the fiat and choose not to pay the buyer or vice versa the buyer could receive the crypto and choose not to pay the seller. There are solutions to this problem but they come in centralized forms which would require trusting a third party and having to provide identification.
+The problem of having peer-to-peer Ethereum to Fiat exchanges is that there is no enforced trust, the crypto seller could receive the fiat and choose not to pay the buyer or vice versa the buyer could receive the crypto and choose not to pay the seller. There are solutions to this problem but they come in centralized forms which would require trusting a third party and having to provide identification.Certain countries would have cryptocurrencies banned and therefore no access to centralized exchanges but those countries would still have access to payment services such as Paypal.
 
 ## Solution
 
-The solution was to use smart contracts that can interact with real world data through the use of ChainLink. The use of ChainLink allows the contract to be able to confirm whether or not a paypal invoice has been paid. Multiple ChainLink nodes can be used to increase decentralization and security of the validations.
+The solution was to use smart contracts that can interact with real world data through the use of ChainLink. The use of ChainLink allows the contract to be able to confirm whether or not a paypal invoice has been paid. Multiple ChainLink nodes can be used to increase decentralization and therefore the security of the validations.
+
+This solution involves a seller matching with a buyer, creating a Paypal invoice for an agreed amount of Ethereum and locking up the Ethereum in a smart contract. This Ethereum is then unlocked when the invoice is paid, the smart contract uses Chainlink Oracles to confirm that the invoice has been paid. The contract can confirm with multiple Oracles making it more decentralized and therefore more secure. If the Invoice is paid then the Buyer can withdraw their funds, if the Invoice isn't paid within a day the Seller can take withdraw their funds.
 
 ## Procedure
 
