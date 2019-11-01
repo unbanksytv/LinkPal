@@ -33,5 +33,5 @@ In this section we will give you more details in terms of how the contract works
 The Adapter uses a custom API that parses the paypal link together with the invoice ID to retrieve the true/false boolean determining if the invoice was paid or not. This is triggered by the ChainLink Node which in turn is called by the Smart Contract.
 
 ### The Smart Contracts
-There is a factory contract that produces children containing the funds and all the ChainLink functionality to do the transfers and confirmations.
+The factory contract produces all the linkpal agreements containing the funds and all the ChainLink functionality to do the transfers and confirmations.
 
