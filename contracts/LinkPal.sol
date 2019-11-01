@@ -4,20 +4,6 @@ pragma experimental ABIEncoderV2;
 import "https://github.com/thodges-gh/chainlink/evm/contracts/ChainlinkClient.sol";
 import "https://github.com/thodges-gh/chainlink/evm/contracts/vendor/Ownable.sol";
 
-/*
-Basic info to test node
-MHRNUJCVDB4J7TF7
-0x9B4019D3b0F29F4A840392960b249c3AD0C5e073
-0xa0305333E22Aa2Ef3c624c27CE9ba0d107BA00c5
-//
-
-0x44929426364bBD411f29DEc82232fBf4d3171466
-0x54c8265c00472518B469B468352643C5e0a81d12
-10
-["892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a"]
-["0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1"]
-*/ 
-//Proxy Contract to test functions without Link Interferance
 contract LinkPal is ChainlinkClient{
 
     //Set the payment as one Oracle time the amount of link the contract has I Believe?
@@ -36,7 +22,8 @@ contract LinkPal is ChainlinkClient{
     event successNodeResponse(
         bool success
     );
-
+//["892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a","892be77a8e7c4b4f988ed7e53d07229a"]
+//["0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1","0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1"]
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
@@ -61,9 +48,17 @@ contract LinkPal is ChainlinkClient{
         jobIds = _jobIds;
         oracles = _oracles;
         setPublicChainlinkToken();
-    
     }
-
+    
+    function getjobIdsLength() public constant returns(uint) {
+        return jobIds.length;
+    }
+    
+    function getoraclesLength() public constant returns(uint) {
+        return oracles.length;
+    }
+    
+    
     //modifier to only allow buyers to access functions
     modifier buyerSellerContract(){
         require(address(this) == msg.sender || sellerAddress == msg.sender || buyerAddress == msg.sender,"Unauthorised , must be buyer or seller");
@@ -106,11 +101,7 @@ contract LinkPal is ChainlinkClient{
         if(trueCount > falseCount){
             released = true;
         }
-<<<<<<< Updated upstream:contracts/LinkPal.sol
         emit successNodeResponse(released);
-=======
-       emit successNodeResponse(released);
->>>>>>> Stashed changes:contracts/chainpal.sol
     }
 
     //This isnt really needed
@@ -123,21 +114,12 @@ contract LinkPal is ChainlinkClient{
     //If enough time has passed seller can withdraw the eth 
     //If the checks pass then the buyer can withdraw the eth 
     //Maybe modifications that the seller can send the ETH to the buyer.
-<<<<<<< Updated upstream:contracts/LinkPal.sol
     function withdrawETH() public buyerSellerContract {
-        if(msg.sender == sellerAddress && deploymentTime <= block.timestamp + 1 minutes && (trueCount != 0 || falseCount != 0)){
+        if(msg.sender == sellerAddress && deploymentTime <= block.timestamp + 1 days && (trueCount != 0 || falseCount != 0)){
             if(released == false){
                 //If a day has passed then the seller can take back his ETH
                 address(msg.sender).transfer(amount);
                 amount = 0;
-=======
-    function withdrawETH() public{
-        if(msg.sender == sellerAddress && deploymentTime >= block.timestamp + 1 days){
-            requestConfirmations();
-            if(released == false){
-                //If a day has passed then the seller can take back his ETH
-                address(msg.sender).transfer(amount);
->>>>>>> Stashed changes:contracts/chainpal.sol
             }
         }else if (msg.sender == buyerAddress && released == true){
             //Withdraw the ETH from the contract
@@ -167,9 +149,11 @@ contract LinkPal is ChainlinkClient{
 }
 
 
-
+//LinkPalFactory, Produces the LinkPal agreements between users.
 contract LinkPalFactory{
-    mapping (address => address[]) public LinkPalAddresses;
+    mapping (address => address[]) public LinkPalAddressesSeller;
+    mapping (address => address[]) public LinkPalAddressesBuyer;
+    
     //address public LinkPalAddress;
     event contractDeployed(
         address LinkPalAddress
@@ -199,8 +183,18 @@ contract LinkPalFactory{
         );
         
         //If it didn't fail Lock that much into a balance
-        LinkPalAddresses[msg.sender].push(LinkPalAddress);
+        LinkPalAddressesSeller[msg.sender].push(LinkPalAddress);
+        LinkPalAddressesBuyer[_buyerAddress].push(LinkPalAddress);
+    
         //Emit an event here\
         emit contractDeployed(LinkPalAddress);
+    }
+    
+    function getLinkPalAddressesSeller() public constant returns(uint) {
+        return LinkPalAddressesSeller[msg.sender].length;
+    }
+    
+    function getLinkPalAddressesBuyer() public constant returns(uint) {
+      return LinkPalAddressesBuyer[msg.sender].length;
     }
 }

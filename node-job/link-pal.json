@@ -1,0 +1,38 @@
+{
+  "initiators": [
+    {
+      "type": "runlog",
+      "params": {
+        "address": "0x0000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "paypal-adapter-bridge",
+      "confirmations": 0,
+      "params": {
+      }
+    },
+    {
+      "type": "copy",
+      "confirmations": null,
+      "params": {
+      }
+    },
+    {
+      "type": "ethbool",
+      "confirmations": null,
+      "params": {
+      }
+    },
+    {
+      "type": "ethtx",
+      "confirmations": null,
+      "params": {
+      }
+    }
+  ],
+  "startAt": null,
+  "endAt": null
+}
