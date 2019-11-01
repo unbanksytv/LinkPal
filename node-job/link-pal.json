@@ -9,7 +9,7 @@
   ],
   "tasks": [
     {
-      "type": "paypal-adapter-bridge",
+      "type": "paypal-adapter",
       "confirmations": 0,
       "params": {
       }
@@ -18,6 +18,9 @@
       "type": "copy",
       "confirmations": null,
       "params": {
+        "copyPath": [
+          "paid"
+        ]
       }
     },
     {

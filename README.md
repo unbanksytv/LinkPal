@@ -37,3 +37,7 @@ The Adapter uses a custom API that parses the paypal link together with the invo
 ### The Smart Contracts
 The factory contract produces all the linkpal agreements containing the funds and all the ChainLink functionality to do the transfers and confirmations.
 
+### Future Work
+Multi-Token Handling
+Listings like a proper exchange
+
